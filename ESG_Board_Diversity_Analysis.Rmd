@@ -1,0 +1,215 @@
+---
+title: "ECON 424 final project R"
+author: "Kye Jones"
+date: "2023-12-06"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r libraries, message = FALSE, echo=FALSE}
+library(dplyr)
+library(ggplot2)
+library(fastDummies)
+library(wooldridge)
+library(lmtest)
+library(sandwich)
+library(ggplot2)
+library(tidyverse)
+library(car)
+library(ggfortify)
+library(mice)
+```
+
+```{r}
+library(readxl)
+ECON_424_Paper_Data <- read_excel("ECON 424 Paper Data.xlsx")
+View(ECON_424_Paper_Data)
+```
+
+
+```{r}
+summary(ECON_424_Paper_Data)
+head(ECON_424_Paper_Data)
+str(ECON_424_Paper_Data)
+```
+
+ESG Overall: The scores range from 1.002 to 3.454 with a median of 1.608, indicating some firms have very high ESG performance. There's a significant spread in the data, as seen by the range.
+ESG Social: These scores are slightly higher on average than overall ESG scores, with a median of 1.725 and a similar broad range, suggesting a focus on social aspects.
+ESG Environmental: The environmental scores are lower on average compared to social scores, with a median of 1.419, indicating a potential area for improvement for many firms.
+Industry: The two-digit industry codes have some missing values, showing a diverse range of industries represented.
+Female Proportion in Industry (indus_femprop): Averages at around 38% but ranges from 11% to 54.9%, indicating variability in female employment across industries.
+Dirty Industry (dirtyindus): Around 27% of the firms are classified in 'dirty' industries, potentially affecting their ESG scores.
+Firm Leverage: On average, firms have a leverage ratio of about 27.8%, but the range is wide, suggesting varying financial risk profiles.
+Capital Intensity: The average is low at 7.5%, but there's a high maximum value, indicating some firms are highly capital-intensive.
+Firm Size: Represented by the log of total assets, showing firms range from small to very large in size.
+Board Size: The board size varies significantly, suggesting different governance structures.
+Number of Executives: Some firms have up to four executives on their board, indicating diverse management structures.
+Gender Diversity: There's a wide variation in board gender diversity, with a mean of 19.28%, suggesting many boards are male-dominated.
+Return on Assets (ROA): Varies widely with some firms having negative ROA, indicating loss-making operations for some of the sampled period.
+Age Diversity: There's a significant range in the age diversity of boards, with some having a very wide range of ages represented.
+Board Independence: Many firms have fully independent boards, with a mean independence level of 83.24%.
+Missing Data: There are missing values in several variables, including industry classification, industry female proportion, firm leverage, and cap intensity. The missing data should be addressed before running your regression analysis.
+
+
+```{r}
+colSums(is.na(ECON_424_Paper_Data))
+```
+
+```{r}
+cleaned_data <- ECON_424_Paper_Data
+
+cleaned_data <- cleaned_data[!is.na(cleaned_data$indus_twodigit), ]
+
+
+vars_to_impute <- c("indus_femprop", "dirtyindus", "firmleverage", "capintensity", "firmsize", "roa", "agediversity")
+imputed_data <- mice(cleaned_data[, vars_to_impute], method = 'median', m = 1, maxit = 1)
+cleaned_data[, vars_to_impute] <- complete(imputed_data)
+
+sapply(cleaned_data, function(x) sum(is.na(x)))
+```
+
+This code excludes observations with missing industry codes, imputes the median for continuous financial variables and age diversity, and then checks to confirm there are no remaining missing values. 
+
+
+
+
+```{r}
+# Model 1: ESG scores regressed on gender diversity and control variables
+model1 <- lm(esg_overall ~ gendiversity + indus_femprop + firmsize + firmleverage + agediversity + boardindepend + capintensity + boardsize + numexecutive + indus_twodigit + dirtyindus, data = ECON_424_Paper_Data)
+summary(model1)
+
+# Model 2: Financial performance (ROA) regressed on gender diversity and control variables
+model2 <- lm(roa ~ gendiversity + indus_femprop + firmsize + firmleverage + agediversity + boardindepend + capintensity + boardsize + numexecutive + indus_twodigit + dirtyindus, data = ECON_424_Paper_Data)
+summary(model2)
+
+```
+
+```{r}
+plot(model1)
+plot(residuals(model1) ~ fitted(model1))
+vif(model1)
+```
+
+```{r}
+plot(model2)
+plot(residuals(model2) ~ fitted(model2))
+vif(model2)
+```
+
+```{r}
+model3 <- lm(esg_overall ~ gendiversity * firmsize + indus_femprop + firmleverage + agediversity + boardindepend + capintensity + boardsize + numexecutive + indus_twodigit + dirtyindus, data = ECON_424_Paper_Data)
+summary(model3)
+```
+
+```{r}
+interaction.plot(ECON_424_Paper_Data$firmsize, ECON_424_Paper_Data$gendiversity, ECON_424_Paper_Data$esg_overall)
+```
+
+```{r}
+plot(residuals(model3) ~ fitted(model3))
+qqnorm(residuals(model3))
+qqline(residuals(model3))
+vif(model3)
+plot(model3)
+```
+
+```{r}
+summary_model1 <- coeftest(model1, vcov = vcovHC(model1, type = "HC1"))
+print(summary_model1)
+summary_model2 <- coeftest(model2, vcov = vcovHC(model2, type = "HC1"))
+print(summary_model2)
+summary_model3 <- coeftest(model3, vcov = vcovHC(model3, type = "HC1"))
+print(summary_model3)
+```
+
+```{r}
+# Joint significance tests for models
+# Model 1: Test if gender diversity is significant
+linearHypothesis(model1, "gendiversity = 0")
+
+# Model 2: Test if gender diversity is significant
+linearHypothesis(model2, "gendiversity = 0")
+
+# Model 3: Test if both gender diversity and the interaction with firm size are significant
+linearHypothesis(model3, c("gendiversity = 0", "firmsize = 0", "gendiversity:firmsize = 0"))
+```
+
+```{r}
+# Model comparison using AIC and BIC
+model_comparison <- data.frame(
+  Model = c("Model 1", "Model 2", "Model 3"),
+  AIC = c(AIC(model1), AIC(model2), AIC(model3)),
+  BIC = c(BIC(model1), BIC(model2), BIC(model3))
+)
+print(model_comparison)
+```
+
+```{r}
+predicted_values1 <- predict(model1, newdata = ECON_424_Paper_Data)
+
+
+length_actual <- length(ECON_424_Paper_Data$esg_overall)
+length_predicted <- length(predicted_values1)
+
+
+if (length_actual == length_predicted) {
+  plot(ECON_424_Paper_Data$esg_overall, predicted_values1, 
+       main = "Predicted vs Actual Values",
+       xlab = "Actual ESG Scores",
+       ylab = "Predicted ESG Scores",
+       pch = 16)
+  abline(0, 1, col = "red", lwd = 2) # Add a red line at 45 degrees
+} else {
+  stop("The lengths of actual and predicted values do not match.")
+}
+```
+
+```{r}
+predicted_values2 <- predict(model2, newdata = ECON_424_Paper_Data)
+if (length(ECON_424_Paper_Data$roa) == length(predicted_values2)) {
+  plot(ECON_424_Paper_Data$roa, predicted_values2, 
+       main = "Predicted vs Actual Values",
+       xlab = "Actual ROA",
+       ylab = "Predicted ROA",
+       pch = 16)
+  abline(0, 1, col = "blue", lwd = 2) # Add a blue line at 45 degrees
+} else {
+  stop("The lengths of actual and predicted values do not match.")
+}
+
+```
+
+```{r}
+
+autoplot(model1, which = 1:2, ncol = 2)
+autoplot(model2, which = 1:2, ncol = 2)
+autoplot(model3, which = 1:2, ncol = 2)
+```
+
+```{r}
+
+coeftest_robust_model1 <- coeftest(model1, vcov = vcovHC(model1, type = "HC1"))
+coeftest_robust_model2 <- coeftest(model2, vcov = vcovHC(model2, type = "HC1"))
+coeftest_robust_model3 <- coeftest(model3, vcov = vcovHC(model3, type = "HC1"))
+```
+
+
+```{r}
+
+print("Robust Standard Errors for Model 1")
+print(coeftest_robust_model1)
+
+print("Robust Standard Errors for Model 2")
+print(coeftest_robust_model2)
+
+print("Robust Standard Errors for Model 3")
+print(coeftest_robust_model3)
+
+```
+

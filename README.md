@@ -5,7 +5,7 @@ OLS regression analysis examining whether **board gender composition drives ESG 
 
 ## Tools & Libraries
 - **R** (primary language)
-- lmtest, sandwich, car, ggplot2, dplyr
+- lmtest, sandwich, car, ggplot2, dplyr, readxl
 
 ## Methods
 - **OLS Regression** — Two models with and without interaction terms
@@ -21,11 +21,12 @@ OLS regression analysis examining whether **board gender composition drives ESG 
 - Model diagnostics confirmed robust results after correcting for heteroscedasticity
 
 ## Files
-- `ESG_Board_Diversity_Analysis.Rmd` — Full R Markdown analysis
-- `ESG_Board_Diversity_Analysis.html` — Rendered report
-- `data/` — Source dataset
+| File | Description |
+|------|-------------|
+| `ESG_Board_Diversity_Analysis.Rmd` | Full R Markdown analysis with code and output |
+| `ESG_Board_Diversity_Report.docx` | Written report with findings and interpretation |
+| `data/ESG_Dataset.xlsx` | Source dataset (534 S&P 500 companies) |
 
 ## Author
 **Kye Jones** — BS Economics (Business Forecasting), Central Washington University
-Completed as part of ECON 424: Introduction to Econometrics
-
+Completed as part of ECON 424: Introduction to Econometrics (2023)
